@@ -445,6 +445,11 @@ class RootTools(object):
 
 		if "prof" not in option.lower() and binning_identifier not in self.binning_determined:
 			self.binning_determined.append(binning_identifier)
+
+		# workaround for segfault in ROOT 6:
+		# do not allow python to take ownership of the TTree
+		ROOT.SetOwnership(tree, False)
+
 		return tree, root_histogram
 
 

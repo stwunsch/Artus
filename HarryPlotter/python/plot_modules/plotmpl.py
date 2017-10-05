@@ -15,6 +15,8 @@ import Artus.HarryPlotter.utility.labels as labels
 
 import array
 import matplotlib
+matplotlib.use("agg")
+
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from matplotlib.colors import Normalize
