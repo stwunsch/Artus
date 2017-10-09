@@ -95,7 +95,7 @@ class Estimation_method(object):
 		if len(self.get_root_objects()) == 0:
 			logger.warning("No histogram associated to %s with name %s.", self, self.get_name())
 			raise Exception
-                root_obj = self.get_root_objects()[0]
+                root_obj = list(self.get_root_objects())[0]
                 for ro in self.get_root_objects():
                     if ro.variable.get_name() == systematic.get_category().get_variable_name():
                         root_obj = ro
