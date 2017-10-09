@@ -40,6 +40,7 @@ class Estimation_method(object):
 		self.mc_campaign = "RunIISummer16MiniAODv2"
 		self.channel = channel
 		self.era = era
+		self.root_objects = set()
 
 
 	# function parsing the datasets helper to return the files
@@ -76,28 +77,29 @@ class Estimation_method(object):
 				elif callable(value):
 					setting[key] = value()
 
-		self.root_objects = []
 		for setting in root_object_settings:
-			self.root_objects.append( create_root_object(**setting))
+			self.root_objects.add( create_root_object(**setting))
 		return self
 
 	def get_root_objects(self):
 		return self.root_objects
 
 	def set_root_objects(self, root_object_holder):
-		for index in range(len(self.root_objects)):
-			self.root_objects[index] = root_object_holder.get(self.root_objects[index].get_name())
+                # this function disturbed the creation of histograms... for what is it needed anyway?
+                pass
 		
 
 	# doing nothing, shape is exactly the histogram as default
 	def do_estimation(self, systematic, root_objects):
 		logger.debug("Calling do_estimation for the estimation method %s. ", self.get_name())
 		if len(self.get_root_objects()) == 0:
-			logger.warning("No histogram associated to %s with name %s. Using the first one as the result", self, self.get_name())
+			logger.warning("No histogram associated to %s with name %s.", self, self.get_name())
 			raise Exception
-		elif len(self.get_root_objects()) > 1:
-			logger.warning("There is not exactly one histogram associated to %s with name %s. Using the first one as the result", self, self.get_name())
-		return self.get_root_objects()[0]
+                root_obj = self.get_root_objects()[0]
+                for ro in self.get_root_objects():
+                    if ro.variable.get_name() == systematic.get_category().get_variable_name():
+                        root_obj = ro
+		return root_obj
 
 	def log_query(self, query, files):
 		logger.debug("Query from get_files() method in %s ,directory %s", self.get_name(), self.directory)
@@ -238,27 +240,29 @@ class QCD_estimation(Estimation_method):
 		super(QCD_estimation, self).__init__("QCD", "nominal", era, directory, channel)
 		self.bg_processes = [copy.deepcopy(p) for p in bg_processes]
 		self.data_process = copy.deepcopy(data_process)
+		self.systematics = []
+		self.root_objects = set()
 
 	def create_root_objects(self, systematic):
 		ss_category = copy.deepcopy(systematic.get_category())
 		ss_category.get_cuts().get("os").invert().name = "ss"
-		ss_category.name = "ss"
+                ss_category.name += "_ss"
 
-		self.root_objects = []
-		self.systematics = []
 		for process in [self.data_process] + self.bg_processes:
 			self.systematics.append( Systematic(category=ss_category, process=process, analysis =systematic.get_analysis(), era=self.era, syst_var=systematic.get_syst_var()))
-			self.root_objects += self.systematics[-1].get_root_objects()
+			self.root_objects.update(self.systematics[-1].get_root_objects())
 		logger.debug("root objects from %s: %s", self.get_name(), self.root_objects)
 		return self
 
 	def do_estimation(self, systematic, root_objects_holder):
-		self.systematics[0].do_estimation(root_objects_holder)
-		self.shape = self.systematics[0].get_shape()
-		for i in range(1, len(self.systematics)):
-			self.systematics[i].do_estimation(root_objects_holder)
-		for i in range(1, len(self.systematics)):
-			self.shape.get_result().Add(self.systematics[i].get_shape().get_result(), -1.0)
+                considered_variable = systematic.get_category().get_variable()
+                considered_systematics = [s for s in self.systematics if s.get_category().get_variable_name() == considered_variable.get_name()]
+		considered_systematics[0].do_estimation(root_objects_holder)
+		self.shape = considered_systematics[0].get_shape()
+		for i in range(1, len(considered_systematics)):
+			considered_systematics[i].do_estimation(root_objects_holder)
+		for i in range(1, len(considered_systematics)):
+			self.shape.get_result().Add(considered_systematics[i].get_shape().get_result(), -1.0)
 
 		self.shape.set_name(systematic.get_name())
 		self.shape.save(root_objects_holder)

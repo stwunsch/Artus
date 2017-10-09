@@ -148,7 +148,7 @@ def create_root_object(**kwargs):
 
 class Root_objects(object):
 	def __init__(self, output_file):
-		self.root_objects = []
+		self.root_objects = set()
 		self.counts = []
 		self.produced = False
 		self.output_file_name = output_file
@@ -159,18 +159,10 @@ class Root_objects(object):
 			raise Exception
 			return False
 		else:
-			if isinstance(root_object, list):
-				for r in root_object:
-					if r.get_name() in [ro.get_name() for ro in self.root_objects]:
-						logger.fatal("Unable to add root object with name \"%s\" because another one with the same name is already contained", r.get_name())
-						logger.fatal("Already present: %s", [ro.get_name() for ro in self.root_objects])
-						raise KeyError
-				self.root_objects += root_object
+			if isinstance(root_object, set):
+                                self.root_objects.update(root_object)
 			else:
-				if root_object.get_name() in [ro.get_name() for ro in self.root_objects]:
-						logger.fatal("Unable to add root object with name \"%s\" because another one with the same name is already contained", root_object.get_name())
-						raise KeyError
-				self.root_objects.append(root_object)
+				self.root_objects.add(root_object)
 
 	def new_histogram(self, **kwargs):
 		self.add(Histogram(**kwargs))
@@ -195,7 +187,7 @@ class Root_objects(object):
 				return self.root_objects[index]
 
 	def create_output_file(self):
-		self.output_file = ROOT.TFile(self.output_file_name, "new")
+		self.output_file = ROOT.TFile(self.output_file_name, "recreate")
 		self.output_tree = ROOT.TTree('output_tree', 'output_tree')
 		logger.debug("Created output file \"%s\"", self.output_file_name)
 
